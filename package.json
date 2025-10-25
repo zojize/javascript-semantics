@@ -1,0 +1,16 @@
+{
+  "name": "javascript-semantics",
+  "private": true,
+  "scripts": {
+    "make:types": "kompile ./typescript/ts-types.k",
+    "start:types": "krun --definition ./ts-types-kompiled ./typescript/temp.ts",
+    "start:types:checks": "krun --definition ./ts-types-kompiled ./typescript/checks.ts",
+    "typecheck:ts": "tsc --noEmit --pretty false ./typescript/checks.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

@@ -17,16 +17,16 @@ syntax StrUnsignedDecimalLiteral ::= InfinityLiteral
                                    | DecimalDigits ExponentPart
                                    | DecimalDigits
 
-syntax InfinityLiteral ::= Token{ "Infinity" } [notInRules, notInGround, noAutoReject]
+syntax InfinityLiteral ::= "Infinity" [token]
 
 syntax DecimalDigits ::= DecimalDigit
                        | DecimalDigits DecimalDigit
 
-syntax DecimalDigit ::= Token{ [0-9] } [notInRules, notInGround]
+syntax DecimalDigit ::= r"[0-9]"
 
 syntax ExponentPart ::= ExponentIndicator SignedInteger
 
-syntax ExponentIndicator ::= Token{ [eE] } [notInRules, notInGround]
+syntax ExponentIndicator ::= r"[eE]"
 
 syntax SignedInteger ::= DecimalDigits
                        | "+" DecimalDigits
@@ -36,6 +36,6 @@ syntax HexIntegerLiteral ::= "0x" HexDigit
                            | "0X" HexDigit
                            | HexIntegerLiteral HexDigit
 
-syntax HexDigit ::= Token{ [0-9a-fA-F] } [notInRules, notInGround]
+syntax HexDigit ::= r"[0-9a-fA-F]"
 
 endmodule

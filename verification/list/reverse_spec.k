@@ -1,4 +1,4 @@
-require "../patterns/list/js-verifier.k"
+requires "../patterns/list/js-verifier.k"
 
 module REVERSE-SPEC
 imports JS-VERIFIER

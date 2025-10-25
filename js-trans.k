@@ -1,8 +1,11 @@
-require "js-orig-syntax.k"
-require "js-orig-syntax-util.k"
-require "js-core-syntax.k"
+requires "js-orig-syntax.k"
+requires "js-orig-syntax-util.k"
+requires "js-core-syntax.k"
 
 module JS-TRANS
+
+imports private K-EQUAL
+imports private ID-COMMON
 
 imports JS-ORIG-SYNTAX
 imports JS-CORE-SYNTAX
@@ -11,7 +14,7 @@ imports JS-ORIG-SYNTAX-UTIL
 
 // top-level
 syntax Stmt ::= "^SourceElements" "(" SourceElements ")" [function]
-rule ^SourceElements(S:SourceElement Ss:SourceElements) => %seq(^SourceElement(S), ^SourceElements(Ss)) when Ss =/=K .SourceElements
+rule ^SourceElements(S:SourceElement Ss               ) => %seq(^SourceElement(S), ^SourceElements(Ss)) requires Ss =/=K .SourceElements
 rule ^SourceElements(S:SourceElement   .SourceElements) =>      ^SourceElement(S)
 rule ^SourceElements(                  .SourceElements) =>                         %emptyStmt
 //
@@ -29,7 +32,7 @@ rule ^Parameters(          .Parameters) =>                       %nil
 
 // statements block
 syntax Stmt ::= "^Statements" "(" Statements ")" [function]
-rule ^Statements(S:Statement Ss:Statements) => %seq(^Statement(S), ^Statements(Ss)) when Ss =/=K .Statements
+rule ^Statements(S:Statement Ss:Statements) => %seq(^Statement(S), ^Statements(Ss)) requires Ss =/=K .Statements
 rule ^Statements(S:Statement   .Statements) =>      ^Statement(S)
 rule ^Statements(              .Statements) =>                     %emptyStmt
 //
@@ -39,7 +42,7 @@ rule ^Statement({ Ss:Statements }) => ^Statements(Ss)
 syntax Stmt ::= "^Statement" "(" Statement ")" [function]
 
 // variable declaration
-rule ^Statement(var VD:VariableDeclaration, VDs:VariableDeclarationS ;) => %seq(^VariableDeclaration(VD), ^Statement(var VDs ;)) when VDs =/=K .VariableDeclarationS
+rule ^Statement(var VD:VariableDeclaration, VDs:VariableDeclarationS ;) => %seq(^VariableDeclaration(VD), ^Statement(var VDs ;)) requires VDs =/=K .VariableDeclarationS
 rule ^Statement(var VD:VariableDeclaration,    .VariableDeclarationS ;) =>      ^VariableDeclaration(VD)
 rule ^Statement(var                            .VariableDeclarationS ;) =>                                %emptyStmt
 //
@@ -121,14 +124,14 @@ rule ^ExpressionS2Comma(E:Expression, Es:ExpressionS) => %comma(^Expression(E), 
 rule ^ExpressionS2Comma(E:Expression                ) =>        ^Expression(E)
 //
 syntax Exp ::= "^Expressions2Comma" "(" Expressions ")" [function]
-rule ^Expressions2Comma(E:Expression, Es:Expressions) => %comma(^Expression(E), ^Expressions2Comma(Es)) when Es =/=K .Expressions
+rule ^Expressions2Comma(E:Expression, Es:Expressions) => %comma(^Expression(E), ^Expressions2Comma(Es)) requires Es =/=K .Expressions
 rule ^Expressions2Comma(E:Expression,   .Expressions) =>        ^Expression(E)
 rule ^Expressions2Comma(                .Expressions) =>                        %emptyExp
 /*
 syntax Exp ::= "^Expressions2Comma" "(" ExpressionS ")" [function]
              | "^Expressions2Comma" "(" Expressions ")"
-rule ^Expressions2Comma(E:Expression, Es:ExpressionS) => %comma(^Expression(E), ^Expressions2Comma(Es)) when Es =/=K .ExpressionS
-rule ^Expressions2Comma(E:Expression, Es:Expressions) => %comma(^Expression(E), ^Expressions2Comma(Es)) when Es =/=K .Expressions
+rule ^Expressions2Comma(E:Expression, Es:ExpressionS) => %comma(^Expression(E), ^Expressions2Comma(Es)) requires Es =/=K .ExpressionS
+rule ^Expressions2Comma(E:Expression, Es:Expressions) => %comma(^Expression(E), ^Expressions2Comma(Es)) requires Es =/=K .Expressions
 rule ^Expressions2Comma(E:Expression,   .ExpressionS) =>        ^Expression(E)
 rule ^Expressions2Comma(E:Expression,   .Expressions) =>        ^Expression(E)
 rule ^Expressions2Comma(                .ExpressionS) =>                        %emptyExp
@@ -184,8 +187,8 @@ rule ^PropertyAssignments(                          .PropertyAssignments) =>    
 //
 syntax Exp ::= "^PropertyAssignment" "(" PropertyAssignment ")" [function]
 rule ^PropertyAssignment(P:PropertyName : E:Expression) => %prop(^PropertyName(P), ^Expression(E))
-rule ^PropertyAssignment(G:Name P:PropertyName (        ) { Ss:SourceElements }) => %get(^PropertyName(P),           ^SourceElements(Ss)) when StringOfName(G) ==K "get"
-rule ^PropertyAssignment(S:Name P:PropertyName ( X:Name ) { Ss:SourceElements }) => %set(^PropertyName(P), ^Name(X), ^SourceElements(Ss)) when StringOfName(S) ==K "set"
+rule ^PropertyAssignment(G:Name P:PropertyName (        ) { Ss:SourceElements }) => %get(^PropertyName(P),           ^SourceElements(Ss)) requires StringOfName(G) ==K "get"
+rule ^PropertyAssignment(S:Name P:PropertyName ( X:Name ) { Ss:SourceElements }) => %set(^PropertyName(P), ^Name(X), ^SourceElements(Ss)) requires StringOfName(S) ==K "set"
 //
 syntax String ::= "^PropertyName" "(" PropertyName ")" [function]
 rule ^PropertyName(N:Name)   => StringOfName(N)
@@ -274,7 +277,7 @@ rule ^String(S:String) => processWhiteSpaces(S)
 
 syntax String ::= "processWhiteSpaces" "(" String ")" [function]
 
-rule processWhiteSpaces(S) => S when findString(S, "\r"    , 0) ==Int -1
+rule processWhiteSpaces(S) => S requires findString(S, "\r"    , 0) ==Int -1
                            //andBool findString(S, "\n"    , 0) ==Int -1
                              andBool findString(S, "\u2028", 0) ==Int -1
                              andBool findString(S, "\u2029", 0) ==Int -1
@@ -303,37 +306,37 @@ rule processWhiteSpaces(S) => S when findString(S, "\r"    , 0) ==Int -1
 
 // Table 3 — Line Terminator Characters
 /*
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\n"    , "\n")) when findString(S, "\n"    , 0) =/=Int -1  // \u000A Line Feed           <LF>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\n"    , "\n")) requires findString(S, "\n"    , 0) =/=Int -1  // \u000A Line Feed           <LF>
 */
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\r"    , "\n")) when findString(S, "\r"    , 0) =/=Int -1  // \u000D Carriage Return     <CR>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2028", "\n")) when findString(S, "\u2028", 0) =/=Int -1  // \u2028 Line separator      <LS>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2029", "\n")) when findString(S, "\u2029", 0) =/=Int -1  // \u2029 Paragraph separator <PS>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\r"    , "\n")) requires findString(S, "\r"    , 0) =/=Int -1  // \u000D Carriage Return     <CR>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2028", "\n")) requires findString(S, "\u2028", 0) =/=Int -1  // \u2028 Line separator      <LS>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2029", "\n")) requires findString(S, "\u2029", 0) =/=Int -1  // \u2029 Paragraph separator <PS>
 
 // Table 2 — Whitespace Characters
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\t"    , " " )) when findString(S, "\t"    , 0) =/=Int -1  // \u0009                Tab                                  <TAB>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u000B", " " )) when findString(S, "\u000B", 0) =/=Int -1  // \u000B                Vertical Tab                         <VT>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\f"    , " " )) when findString(S, "\f"    , 0) =/=Int -1  // \u000C                Form Feed                            <FF>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\t"    , " " )) requires findString(S, "\t"    , 0) =/=Int -1  // \u0009                Tab                                  <TAB>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u000B", " " )) requires findString(S, "\u000B", 0) =/=Int -1  // \u000B                Vertical Tab                         <VT>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\f"    , " " )) requires findString(S, "\f"    , 0) =/=Int -1  // \u000C                Form Feed                            <FF>
 /*
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u0020", " " )) when findString(S, "\u0020", 0) =/=Int -1  // \u0020                Space                                <SP>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u0020", " " )) requires findString(S, "\u0020", 0) =/=Int -1  // \u0020                Space                                <SP>
 */
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u00A0", " " )) when findString(S, "\u00A0", 0) =/=Int -1  // \u00A0                No-break space                       <NBSP>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\uFEFF", " " )) when findString(S, "\uFEFF", 0) =/=Int -1  // \uFEFF                Byte Order Mark                      <BOM>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u1680", " " )) when findString(S, "\u1680", 0) =/=Int -1  // Other category "Zs"   Any other Unicode "space separator"  <USP>
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u180E", " " )) when findString(S, "\u180E", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2000", " " )) when findString(S, "\u2000", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2001", " " )) when findString(S, "\u2001", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2002", " " )) when findString(S, "\u2002", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2003", " " )) when findString(S, "\u2003", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2004", " " )) when findString(S, "\u2004", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2005", " " )) when findString(S, "\u2005", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2006", " " )) when findString(S, "\u2006", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2007", " " )) when findString(S, "\u2007", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2008", " " )) when findString(S, "\u2008", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2009", " " )) when findString(S, "\u2009", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u200A", " " )) when findString(S, "\u200A", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u202F", " " )) when findString(S, "\u202F", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u205F", " " )) when findString(S, "\u205F", 0) =/=Int -1  //
-rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u3000", " " )) when findString(S, "\u3000", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u00A0", " " )) requires findString(S, "\u00A0", 0) =/=Int -1  // \u00A0                No-break space                       <NBSP>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\uFEFF", " " )) requires findString(S, "\uFEFF", 0) =/=Int -1  // \uFEFF                Byte Order Mark                      <BOM>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u1680", " " )) requires findString(S, "\u1680", 0) =/=Int -1  // Other category "Zs"   Any other Unicode "space separator"  <USP>
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u180E", " " )) requires findString(S, "\u180E", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2000", " " )) requires findString(S, "\u2000", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2001", " " )) requires findString(S, "\u2001", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2002", " " )) requires findString(S, "\u2002", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2003", " " )) requires findString(S, "\u2003", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2004", " " )) requires findString(S, "\u2004", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2005", " " )) requires findString(S, "\u2005", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2006", " " )) requires findString(S, "\u2006", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2007", " " )) requires findString(S, "\u2007", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2008", " " )) requires findString(S, "\u2008", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u2009", " " )) requires findString(S, "\u2009", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u200A", " " )) requires findString(S, "\u200A", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u202F", " " )) requires findString(S, "\u202F", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u205F", " " )) requires findString(S, "\u205F", 0) =/=Int -1  //
+rule processWhiteSpaces(S:String) => processWhiteSpaces(replaceAll(S, "\u3000", " " )) requires findString(S, "\u3000", 0) =/=Int -1  //
 
 // Internal Semantic Methods API Call
 

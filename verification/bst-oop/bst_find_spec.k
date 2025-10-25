@@ -1,4 +1,4 @@
-require "../../js.k"
+requires "../../js.k"
 
 module BST-SPEC
 

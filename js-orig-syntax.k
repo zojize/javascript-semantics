@@ -1,10 +1,10 @@
-require "builtins/bool.k"
-require "builtins/int.k"
+// requires "builtins/bool.k"
+// requires "builtins/int.k"
 
 module JS-ORIG-SYNTAX
 
-imports BOOL-SYNTAX-HOOKS
-imports INT-SYNTAX-HOOKS
+imports BOOL-SYNTAX
+imports INT-SYNTAX
 
 // Based on ECMA-262, 5.1 Edition, June 2011
 
@@ -80,9 +80,9 @@ syntax Literal ::= "this"
                  | MyFloat
                  | MyString
 
-syntax Null ::= "null"
+syntax Null ::= "null" [token]
 
-syntax Name ::= Token{[\_\$A-Za-z][\_\$A-Za-z0-9]*}   [notInRules]
+syntax Name ::= r"[\\_\\$A-Za-z][\\_\\$A-Za-z0-9]*" [token]
 
 // 7.8.3 Numeric Literals
 //
@@ -92,8 +92,7 @@ syntax Name ::= Token{[\_\$A-Za-z][\_\$A-Za-z0-9]*}   [notInRules]
 // (0 | [1-9][0-9]*)           ([eE] [+-]? [0-9]+)?      // DecimalIntegerLiteral                    ExponentPartopt
 // 0[xX] [0-9a-fA-F]+                                // HexIntegerLiteral
 
-syntax MyFloat ::= Token{[\+\-]?[0-9]+"."[0-9]+([eE][\+\-]?[0-9]+)?}
-                   [regex("([\\+-]?\\d(\\.\\d*)?|\\.\\d+)([eE][\\+-]?(\\d(\\.\\d*)?|\\.\\d+))?"), notInRules, notInGround]
+syntax MyFloat ::= r"[\\+\\-]?[0-9]+\\.[0-9]+([eE][\\+\\-]?[0-9]+)?" [token]
 
 // 7.8.4 String Literals
 //
@@ -108,10 +107,10 @@ syntax MyFloat ::= Token{[\+\-]?[0-9]+"."[0-9]+([eE][\+\-]?[0-9]+)?}
 
 // FIXME: consider lookahead symbol for the case:  \ 0 [lookahead \not\in DecimalDigit]
 syntax MyString ::= MyString1 | MyString2
-syntax MyString1 ::= Token{ "'" ((~[\'\\\n\r]) | (((([\\]~[1-9xu]) | ([\\][\r][\n])) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))*  "'"}
-                           [regex("['](([^'\\\\\\n\\r])|([\\\\][^1-9xu])|([\\\\][\\r][\\n])|([\\\\][x][0-9a-fA-F]{2})|([\\\\][u][0-9a-fA-F]{4}))*[']"), notInRules, notInGround]
-syntax MyString2 ::= Token{"\"" ((~[\"\\\n\r]) | (((([\\]~[1-9xu]) | ([\\][\r][\n])) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))*  "\""}
-                     [regex("[\\\"](([^\\\"\\\\\\n\\r])|([\\\\][^1-9xu])|([\\\\][\\r][\\n])|([\\\\][x][0-9a-fA-F]{2})|([\\\\][u][0-9a-fA-F]{4}))*[\\\"]"), notInRules, notInGround]
+syntax MyString1 ::= "'" r"((~['\\n\\r])|((((\\\\~[1-9xu])|(\\\\[\r][\n]))|(\\\\[x][0-9a-fA-F][0-9a-fA-F]))|(\\\\[u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))*"  "'"
+                           [token]
+syntax MyString2 ::= "\"" r"((~[\"\\n\\r])|((((\\\\~[1-9xu])|(\\\\[\r][\n]))|(\\\\[x][0-9a-fA-F][0-9a-fA-F]))|(\\\\[u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))*"  "\""
+                     [token]
 
 // 11.1.5 Object Initialiser
 // 
@@ -224,6 +223,6 @@ syntax Expression ::= LeftExpression
 
 syntax CallExpression ::= APIName "(" Expressions ")"
 
-syntax APIName ::= Token{[\@][\_\$A-Za-z0-9]*}   [notInRules]
+syntax APIName ::= r"[\\@][\\_\\$A-Za-z0-9]*" [token]
 
 endmodule

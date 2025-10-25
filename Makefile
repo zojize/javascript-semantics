@@ -20,8 +20,8 @@ build: prerequisite jsaf test262
 define kbuild
 rm -rf js-kompiled
 echo "rule #@PWD => \"`pwd`\"" >js-pwd.k
-./kpp.py js-main.k >js.k
-kompile --no-prelude --backend java js.k
+uv run python ./kpp.py js-main.k >js.k
+kompile --no-prelude --backend llvm js.k
 endef
 
 .PHONY: prerequisite

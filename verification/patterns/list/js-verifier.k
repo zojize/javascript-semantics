@@ -1,6 +1,6 @@
-require "../../../js.k"
-require "modules/verification_lemmas.k"
-require "list_pattern.k"
+requires "../../../js.k"
+requires "modules/verification_lemmas.k"
+requires "list_pattern.k"
 
 module JS-VERIFIER
 

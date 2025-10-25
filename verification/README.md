@@ -122,9 +122,9 @@ available online at
 
 The K verifier requires a wrapper module that combines the original language semantics with several verification specific libraries. A wrapper module can be written by simply importing several sub-modules such as the JavaScript semantics `JS`, verification lemmas `VERIFICATION_LEMMAS`, and a data type abstraction `<PATTERN>`, as follows:
 ```
-require "js.k"
-require "modules/verification_lemmas.k"
-require "<pattern.k>"
+requires "js.k"
+requires "modules/verification_lemmas.k"
+requires "<pattern.k>"
 
 module JS-VERIFIER
 

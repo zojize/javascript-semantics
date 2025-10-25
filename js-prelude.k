@@ -1,15 +1,17 @@
-require "k-prelude.k"
-require "builtins/list.k"
-require "builtins/map.k"
-require "builtins/set.k"
-require "builtins/mint.k"
-require "io/io.k"
-//require "modules/substitution.k"
-//require "modules/k-functional-visitor.k"
+// requires "k-prelude.k"
+requires "kast.md"
+requires "domains.md"
+// requires "builtins/list.k"
+// requires "builtins/map.k"
+// requires "builtins/set.k"
+// requires "builtins/mint.k"
+// requires "io/io.k"
+//requires "modules/substitution.k"
+//requires "modules/k-functional-visitor.k"
 
 module JS-PRELUDE
 
-imports BUILTIN-HOOKS
+// imports BUILTIN-HOOKS
 imports K
 imports LIST
 imports MAP

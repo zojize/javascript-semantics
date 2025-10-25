@@ -1,7 +1,7 @@
-require "../../../js.k"
-require "modules/verification_lemmas.k"
-require "string_set.k"
-require "string_tree_pattern.k"
+requires "../../../js.k"
+requires "modules/verification_lemmas.k"
+requires "string_set.k"
+requires "string_tree_pattern.k"
 
 module JS-VERIFIER
 

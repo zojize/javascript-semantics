@@ -1,4 +1,4 @@
-require "../patterns/tree_float/js-verifier.k"
+requires "../patterns/tree_float/js-verifier.k"
 
 module BST-SPEC
 imports JS-VERIFIER

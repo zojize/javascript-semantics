@@ -1,6 +1,6 @@
-           require "js-trans.k"
-           require "js-str-numeric-literal.k"
-           require "js-prelude.k"
+           requires "js-trans.k"
+           requires "js-str-numeric-literal.k"
+           requires "js-prelude.k"
            
            module JS-SYNTAX
            imports JS-ORIG-SYNTAX
