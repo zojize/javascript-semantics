@@ -1,0 +1,252 @@
+\documentclass{article}
+% \usepackage{amsmath}
+\usepackage[fleqn]{amsmath}
+\usepackage{amssymb}
+% \usepackage{mathtools}
+\usepackage{bussproofs}
+\usepackage{mathrsfs}
+\usepackage{svg}
+\usepackage[margin=1in]{geometry}
+\usepackage{stackengine}
+\usepackage{titlesec}
+\usepackage{fitch}
+\usepackage{multicol}
+\usepackage[bottom]{footmisc}
+\usepackage[utf8x]{inputenc}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{inconsolata}
+
+
+\lstset{
+  basicstyle=\ttfamily\fontfamily{zi4}\selectfont,
+  breaklines=true,
+  escapeinside={/*!}{!*/},
+}
+
+\begin{document}
+
+\section{TypeScript Grammar (WIP)}
+
+\begin{lstlisting}
+Type ::= AnyType
+       | UnknownType
+       | NeverType
+       | VoidType
+       | ObjectType
+       | StringType
+       | NumberType
+       | BooleanType
+       | SymbolType
+       | BigIntType
+       | ObjectLiteralType
+       | Id
+       | "(" Type ")" [bracket]
+       > left:
+         Type "&" Type
+       > Type "|" Type
+
+ObjectLiteralType ::= "{" PropertySignatures "}"
+PropertySignature ::= Id ":" Type
+                    | Id "?" ":" Type
+                    | "readonly" Id ":" Type
+                    | "readonly" Id "?" ":" Type
+
+Identifier ::= see https://tc39.es/ecma262/#prod-IdentifierName
+
+TypeAliasDeclaration ::= "type" Id "=" Type ";"
+// <: is not real TS syntax, defined here to mirror the checkTypeRelatedTo behavior (aka isAssignable)
+// /*!\url{https://raw.githubusercontent.com/microsoft/TypeScript/refs/heads/main/src/compiler/checker.ts#:~:text=is%20truthy.%0A%20%20%20%20%20*/%0A%20%20%20%20function-,checkTypeRelatedTo,-(%0A%20%20%20%20%20%20%20%20source%3A%20Type%2C%0A%20%20%20%20%20%20%20%20target}!*/
+IsAssignableTo ::= Type "<:" Type ";"
+Stmt ::= TypeAliasDeclaration
+       | IsAssignableTo
+Pgm ::= List{Stmt, ""}
+\end{lstlisting}
+
+\section{TypeScript Type Checking Environment Configuration (WIP)}
+
+$\Gamma := \mathtt{Identifier}\mapsto \mathtt{Type}$
+
+\section{TypeScript Type Checking Rules (WIP)}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\Gamma, \texttt{Id} \mapsto \texttt{T} | \texttt{Id} \Downarrow \texttt{T}$}{LookUp}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\Gamma | \texttt{ type Id = T ;} \Downarrow \Gamma, \texttt{Id} \mapsto \texttt{T}$}{Definition}
+\end{prooftree}
+
+\subsection*{Program sequencing and result accumulation}
+
+Currently, we evaluate a program as a list of statements, accumulating a list $R$ of results produced by $\texttt{<:}$ checks.
+
+\subsection*{Core assignability ($<:$) rules}
+
+We write the judgment $S \mathrel{<:} T$ for $\mathrm{isAssignable}(S, T)$.
+
+\begin{multicols}{2}
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$T \mathrel{<:} T$}{Sub-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{any} \mathrel{<:} T$}{Any-Top-L}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$T \mathrel{<:} \texttt{any}$}{Any-Top-R}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$S \mathrel{<:} \texttt{unknown}$}{Unknown-Top}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{unknown} \mathrel{<:} \texttt{any}$}{Unknown-Any}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{unknown} \mathrel{<:} \texttt{unknown}$}{Unknown-Refl}
+\end{prooftree}
+
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{never} \mathrel{<:} T$}{Never-Bot}
+\end{prooftree}
+
+% Primitive widening rules (string-like, number-like, etc.)
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{string} \mathrel{<:} \texttt{string}$}{String-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{number} \mathrel{<:} \texttt{number}$}{Number-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{bigint} \mathrel{<:} \texttt{bigint}$}{BigInt-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{boolean} \mathrel{<:} \texttt{boolean}$}{Boolean-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{}
+\UnaryInfC{$\texttt{symbol} \mathrel{<:} \texttt{symbol}$}{Symbol-Refl}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$S \mathrel{<:} T_1$}
+\UnaryInfC{$S \mathrel{<:} T_1 \mid T_2$}{Union-R1}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$S \mathrel{<:} T_2$}
+\UnaryInfC{$S \mathrel{<:} T_1 \mid T_2$}{Union-R2}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$S_1 \mathrel{<:} T$}
+\AxiomC{$S_2 \mathrel{<:} T$}
+\BinaryInfC{$S_1 \mid S_2 \mathrel{<:} T$}{Union-L}
+\end{prooftree}
+\end{multicols}
+
+\paragraph{Non-derivable judgments.}
+There are no rules for $\texttt{unknown} \mathrel{<:} T$ when $T \not\in \{\texttt{any},\texttt{unknown}\}$, nor for $T \mathrel{<:} \texttt{never}$ unless $T=\texttt{never}$; thus those judgments are not derivable.
+
+% TODO: Extend the formalization to cover additional cases handled by
+% `isSimpleTypeRelatedTo` in the TypeScript checker:
+%   * enum types and enum-literal types
+%   * literal-to-base conversions (e.g., "foo" <: string, 1 <: number)
+%   * null/undefined special-case rules (including non-strict null checks
+%     and unions that behave like "unknown-like")
+% These are currently omitted from the core rules for simplicity.
+
+\paragraph{Intersection types.}
+
+For intersection types, we adopt the usual greatest-lower-bound reading: a value of type
+$S_1 \,\&\, S_2$ satisfies both $S_1$ and $S_2$. At the level of assignability, we capture
+this with the following rule:
+
+\begin{prooftree}
+\AxiomC{$S_1 \,\&\, S_2$}
+\AxiomC{$S_1 \mathrel{<:} T$}
+\AxiomC{$S_2 \mathrel{<:} T$}
+\TrinaryInfC{$S_1 \,\&\, S_2 \mathrel{<:} T$}{Inter-L}
+\end{prooftree}
+
+That is, an intersection type is assignable to a target type $T$ exactly when each
+constituent is assignable to $T$. Note that we intentionally do \emph{not} add a converse
+rule of the form $S \mathrel{<:} T_1 \,\&\, T_2$, since TypeScript's implementation of
+intersections (via normalization and structural checks) does not behave as a simple
+greatest lower bound in all cases.
+
+\subsection*{Object structural subtyping}
+
+
+We write object types in the form
+\[
+  \{ \boldsymbol{P} \}
+\]
+where each property descriptor $P$ is of one of the following forms:
+\[
+  x : T \quad\mid\quad x? : T \quad\mid\quad \texttt{readonly}\ x : T \quad\mid\quad \texttt{readonly}\ x? : T.
+\]
+
+We use the following meta-level predicates:
+\begin{itemize}
+  \item $\mathrm{name}(P)$ is the identifier of a property descriptor.
+  \item $\mathrm{type}(P)$ is its type.
+  \item $\mathrm{readonly}(P)$ is true iff $P$ is declared \texttt{readonly}.
+  \item $\mathrm{required}(P)$ is true iff $P$ is not marked with ``\texttt{?}''.
+\end{itemize}
+
+\paragraph{Structured object subtyping (ignoring functions and intersections).}
+
+Let $S = \{ \boldsymbol{P_s} \}$ and $T = \{ \boldsymbol{P_t} \}$.
+We say that $S \mathrel{<:} T$ holds when all of the following conditions are satisfied:
+
+\begin{itemize}
+  \item For every property descriptor $P_t \in \boldsymbol{P_t}$ with name $x = \mathrm{name}(P_t)$, there exists \emph{some}
+        $P_s \in \boldsymbol{P_s}$ with $\mathrm{name}(P_s) = x$ such that:
+        \begin{itemize}
+          \item If $\mathrm{required}(P_t)$ then $\mathrm{required}(P_s)$.
+          \item If $\mathrm{readonly}(P_t)$ then $\mathrm{readonly}(P_s)$.
+          \item $\mathrm{type}(P_s) \mathrel{<:} \mathrm{type}(P_t)$.
+        \end{itemize}
+  \item No further condition is imposed on properties of $S$ whose names do not appear in $T$ (extra properties on $S$ are allowed).
+\end{itemize}
+
+This can be encoded by the following rule schema:
+
+\begin{prooftree}
+\AxiomC{$\forall P_t \in \boldsymbol{P_t}.\ \exists P_s \in \boldsymbol{P_s}.\
+  \begin{array}{l}
+    \mathrm{name}(P_s) = \mathrm{name}(P_t)\ \wedge\\
+    \bigl(\mathrm{required}(P_t) \Rightarrow \mathrm{required}(P_s)\bigr)\ \wedge\\
+    \bigl(\mathrm{readonly}(P_t) \Rightarrow \mathrm{readonly}(P_s)\bigr)\ \wedge\\
+    \bigl(\mathrm{type}(P_s) \mathrel{<:} \mathrm{type}(P_t)\bigr)
+  \end{array}$}
+\UnaryInfC{$\{ \boldsymbol{P_s} \} \mathrel{<:} \{ \boldsymbol{P_t} \}$}
+\end{prooftree}
+
+
+\end{document}

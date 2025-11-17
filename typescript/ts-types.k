@@ -13,8 +13,12 @@ syntax Type ::= AnyType
               | SymbolType
               | BigIntType
               | ObjectLiteralType
-              | UnionType
               | Id
+              | Id "<" TypeArgs ">"
+              | "(" Type ")" [bracket]
+              > left:
+                Type "&" Type
+              > Type "|" Type
 
 syntax AnyType     ::= "any"
 syntax UnknownType ::= "unknown"
@@ -34,9 +38,11 @@ syntax PropertySignature ::= Id ":" Type
                            | "readonly" Id "?" ":" Type
 syntax PropertySignatures ::= List{PropertySignature, ","}
 
-syntax UnionType ::= Type "|" Type  [left]
-
+syntax TypeVars ::= NeList{Id, ","}
+syntax TypeArgs ::= NeList{Type, ","}
 syntax TypeAliasDeclaration ::= "type" Id "=" Type ";"
+                              | "type" Id "<" TypeVars ">" "=" Type ";"
+
 syntax IsAssignableTo ::= Type "<:" Type ";"
 syntax Stmt ::= TypeAliasDeclaration
               | IsAssignableTo
@@ -54,7 +60,8 @@ imports TS-TYPES-SYNTAX
 
 configuration
   <k> $PGM:Pgm </k>
-  <tenv> .Map </tenv>
+  // List<Record<Id, Type>>
+  <tenv> ListItem(.Map) </tenv>
   <results> .List </results>
 
 // Schedule: turn a flat list of statements into K sequence
@@ -64,15 +71,16 @@ rule <k> K:K ~> .Pgm => K </k>
 
 // results are collected as a List of Bool in <results>
 // Pretty unparse + constructor for results
-syntax Result ::= Type "<:" Type "=" Bool [symbol(Result)]
-syntax KItem ::= "pushResult" "(" Type "," Type "," Bool ")"
+syntax KItem ::= Type "<:" Type "=" Bool
 syntax KItem ::= "check" "(" Type "," Type ")"
 syntax KItem ::= "resolveL" "(" Type "," Type ")"
 syntax KItem ::= "resolveR" "(" Type "," Type ")"
 
 // Type aliasing: update env and drop the statement
 rule <k> type Name = Type ; ~> K:K => K </k>
-  <tenv> M:Map => M [ Name <- Type ] </tenv>
+  <tenv> ListItem(M:Map) => ListItem(M [ Name <- Type ]) ... </tenv>
+rule <k> type Name < Vars:TypeVars > = Type ; ~> K:K => K </k>
+  <tenv> ListItem(M:Map) => ListItem(M [ Name <- GenericType(Vars, Type) ]) ... </tenv>
 
 syntax TypeAnnotations ::= "optional" [token]
                          | "readonly" [token]
@@ -80,13 +88,35 @@ syntax Type ::= "AnnotatedType" "(" Type "," Set ")"
 syntax Type ::= "PropertySignatureType" "(" Type "," Set ")"
 //                                          ^Type    ^Modifiers
 syntax Type ::= "ObjectType" "(" Map ")" // TODO: index signatures
+syntax Type ::= "GenericType" "(" TypeVars "," Type ")"
 
+// TODO: implement normalization of union and intersection types, see below
+// function getNormalizedUnionOrIntersectionType(type: UnionOrIntersectionType, writing: boolean) {
+//     const reduced = getReducedType(type);
+//     if (reduced !== type) {
+//         return reduced;
+//     }
+//     if (type.flags & TypeFlags.Intersection && shouldNormalizeIntersection(type as IntersectionType)) {
+//         // Normalization handles cases like
+//         // Partial<T>[K] & ({} | null) ==>
+//         // Partial<T>[K] & {} | Partial<T>[K] & null ==>
+//         // (T[K] | undefined) & {} | (T[K] | undefined) & null ==>
+//         // T[K] & {} | undefined & {} | T[K] & null | undefined & null ==>
+//         // T[K] & {} | T[K] & null
+//         const normalizedTypes = sameMap(type.types, t => getNormalizedType(t, writing));
+//         if (normalizedTypes !== type.types) {
+//             return getIntersectionType(normalizedTypes);
+//         }
+//     }
+//     return type;
+// }
 // Normalization to internal representation
 syntax Type ::= "normalize" "(" Type ")" [function]
 rule normalize(T:Type) => T [owise]
+rule normalize({ PS:PropertySignatures }) => ObjectType(foldProps(PS, .Map))
+
 // Normalize object literal types by folding property signatures
 syntax Map ::= "foldProps" "(" PropertySignatures "," Map ")" [function]
-rule normalize({ PS:PropertySignatures }) => ObjectType(foldProps(PS, .Map))
 rule foldProps(.PropertySignatures, M:Map) => M
 rule foldProps(P:PropertySignature, PS:PropertySignatures, M:Map) => foldProps(PS, addProp(P, M))
 
@@ -106,48 +136,37 @@ syntax PropertySignatures ::= "props" "(" Map ")" [function]
 rule props(.Map) => .PropertySignatures
 // Single-entry map: emit just one property without a trailing unit
 rule props((N:Id |-> PropertySignatureType(T:Type, Mods:Set)) .Map)
-  => toPropSig(N, ppType(T), Mods)
+  => toPropSignature(N, ppType(T), Mods)
 // Multiple entries: emit head, then recurse
 rule props((N:Id |-> PropertySignatureType(T:Type, Mods:Set)) M:Map)
-  => toPropSig(N, ppType(T), Mods), props(M)
+  => toPropSignature(N, ppType(T), Mods), props(M)
   requires M =/=K .Map
 
-syntax PropertySignature ::= "toPropSig" "(" Id "," Type "," Set ")" [function]
-rule toPropSig(N:Id, T:Type, Mods:Set) => readonly N ?: T
+syntax PropertySignature ::= "toPropSignature" "(" Id "," Type "," Set ")" [function]
+rule toPropSignature(N:Id, T:Type, Mods:Set) => readonly N ?: T
   requires hasModifier(Mods, readonly) andBool hasModifier(Mods, optional)
-rule toPropSig(N:Id, T:Type, Mods:Set) => readonly N : T
+rule toPropSignature(N:Id, T:Type, Mods:Set) => readonly N : T
   requires hasModifier(Mods, readonly) andBool notBool hasModifier(Mods, optional)
-rule toPropSig(N:Id, T:Type, Mods:Set) => N ?: T
+rule toPropSignature(N:Id, T:Type, Mods:Set) => N ?: T
   requires notBool hasModifier(Mods, readonly) andBool hasModifier(Mods, optional)
-rule toPropSig(N:Id, T:Type, Mods:Set) => N : T
+rule toPropSignature(N:Id, T:Type, Mods:Set) => N : T
   requires notBool hasModifier(Mods, readonly) andBool notBool hasModifier(Mods, optional)
 
 
 // Structured capture of boolean results with their LHS/RHS types (prettified)
+syntax KItem ::= "pushResult" "(" Type "," Type "," Bool ")"
 rule <k> pushResult(T1:Type, T2:Type, B:Bool) ~> K:K => K </k>
   <results> R:List => R ListItem(ppType(T1) <: ppType(T2) = B) </results>
 
-// Resolve type aliases on either side before checking
-rule <k> Name:Id <: T:Type ; ~> K:K => T1:Type <: T ; ~> K </k>
-  <tenv> ... Name |-> T1 ... </tenv>
-rule <k> T:Type <: Name:Id ; ~> K:K => T <: T1:Type ; ~> K </k>
-  <tenv> ... Name |-> T1 ... </tenv>
+syntax Type ::= "lookupType" "(" Id "," List ")" [function]
+rule lookupType(Name:Id, ListItem(Name |-> T) _) => T 
+rule lookupType(Name:Id, ListItem(_:Map) Tail:List) => lookupType(Name, Tail)
 
-rule <k> T1:Type <: T2:Type ; ~> K:K => resolveL(T1, T2) ~> K </k>
+rule <k> Name:Id => lookupType(Name, Env) ... </k>
+  <tenv> Env:List </tenv>
 
-// Resolve left side aliases and object literals
-rule <k> resolveL(Name:Id, T:Type) ~> K:K => resolveL(T1:Type, T) ~> K </k>
-  <tenv> ... Name |-> T1 ... </tenv>
-rule <k> resolveL({ PS:PropertySignatures }, T:Type) ~> K:K => resolveL(ObjectType(foldProps(PS, .Map)), T) ~> K </k>
-// Once left is resolved, move to resolving right
-rule <k> resolveL(T1:Type, T2:Type) ~> K:K => resolveR(T1, T2) ~> K </k>
+rule <k> T1:Type <: T2:Type ; ~> K:K => pushResult(normalize(T1), normalize(T2), isAssignable(normalize(T1), normalize(T2))) ~> K </k>
 
-// Resolve right side aliases and object literals
-rule <k> resolveR(T:Type, Name:Id) ~> K:K => resolveR(T, T1:Type) ~> K </k>
-  <tenv> ... Name |-> T1 ... </tenv>
-rule <k> resolveR(T:Type, { PS:PropertySignatures }) ~> K:K => resolveR(T, ObjectType(foldProps(PS, .Map))) ~> K </k>
-// Both sides resolved => compute and record
-rule <k> resolveR(T1:Type, T2:Type) ~> K:K => pushResult(normalize(T1), normalize(T2), isAssignable(T1, T2)) ~> K </k>
 
 // Functional assignability relation
 syntax Bool ::= "isAssignable" "(" Type "," Type ")" [function]
@@ -172,25 +191,19 @@ rule isAssignable(_:Type, never) => false [owise]
 // Unions
 rule isAssignable(S:Type, T1:Type | T2:Type) => isAssignable(S, T1) orBool isAssignable(S, T2)
 rule isAssignable(S1:Type | S2:Type, T:Type) => isAssignable(S1, T) andBool isAssignable(S2, T)
-rule isAssignable({ PS:PropertySignatures }, T:Type) => isAssignable(ObjectType(foldProps(PS, .Map)), T)
-rule isAssignable(T:Type, { PS:PropertySignatures }) => isAssignable(T, ObjectType(foldProps(PS, .Map)))
+rule isAssignable(ObjectType(MS:Map), ObjectType(MT:Map)) => objectAssignable(MS, MT)
 
-// Object literal types: structural subtyping
-syntax Bool ::= "objectAssignable" "(" Map "," Map ")" [function]
+rule isAssignable(S1:Type & S2:Type, T:Type) => isAssignable(S1, T) andBool isAssignable(S2, T)
+rule isAssignable(S:Type, T1:Type & T2:Type) => isAssignable(S, T1) orBool isAssignable(S, T2)
+
+// Fallback
+rule isAssignable(_:Type, _:Type) => false [owise]
 
 // hasKey over a Map
 syntax Bool ::= "hasKey" "(" Map "," Id ")" [function]
 rule hasKey((N:Id |-> _) _MRest:Map, N:Id) => true
 rule hasKey((N1:Id |-> _) MRest:Map, N:Id) => hasKey(MRest, N) requires N =/=K N1
 rule hasKey(.Map, _:Id) => false
-
-// Extract property info (assumes presence)
-syntax Type ::= "propTypeOf" "(" Map "," Id ")" [function]
-rule propTypeOf((N:Id |-> PropertySignatureType(T:Type, _:Set)) _:Map, N:Id) => T
-rule propTypeOf((N1:Id |-> _) MRest:Map, N:Id) => propTypeOf(MRest, N) requires N =/=K N1
-syntax Set  ::= "propModsOf" "(" Map "," Id ")" [function]
-rule propModsOf((N:Id |-> PropertySignatureType(_T:Type, Mods:Set)) _:Map, N:Id) => Mods
-rule propModsOf((N1:Id |-> _) MRest:Map, N:Id) => propModsOf(MRest, N) requires N =/=K N1
 
 // Check modifier presence in a Set of modifiers
 syntax Bool ::= "hasModifier" "(" Set "," TypeAnnotations ")" [function]
@@ -211,31 +224,23 @@ rule propAssignable(Ts:Type, _:Set, Tt:Type, ModsT:Set)
 rule propAssignable(Ts:Type, ModsS:Set, Tt:Type, ModsT:Set)
   => notBool(hasModifier(ModsS, optional))
      andBool isAssignable(Ts, Tt)
-  requires notBool(hasModifier(ModsT, optional))
+  requires notBool hasModifier(ModsT, optional)
 
-// Object structural check: every target property must be satisfied by source
+
+// Object literal types: structural subtyping
+syntax Bool ::= "objectAssignable" "(" Map "," Map ")" [function]
 rule objectAssignable(_:Map, .Map) => true
-
 // Target property present in source
-rule objectAssignable(MS:Map, (N:Id |-> PropertySignatureType(Tt:Type, ModsT:Set)) MTail:Map)
-  => propAssignable(propTypeOf(MS, N), propModsOf(MS, N), Tt, ModsT)
-     andBool objectAssignable(MS, MTail)
-  requires hasKey(MS, N) ==K true
-
+rule objectAssignable((N:Id |-> PropertySignatureType(Ts:Type, ModsS:Set)) STail:Map, (N:Id |-> PropertySignatureType(Tt:Type, ModsT:Set)) TTail:Map)
+  => propAssignable(Ts, ModsS, Tt, ModsT)
+     andThenBool objectAssignable(STail, TTail)
 // Target optional property missing in source is OK
-rule objectAssignable(MS:Map, (N:Id |-> PropertySignatureType(_Tt:Type, ModsT:Set)) MTail:Map)
+rule objectAssignable(MS:Map, (N:Id |-> PropertySignatureType(_:Type, ModsT:Set)) MTail:Map)
   => objectAssignable(MS, MTail)
-  requires hasKey(MS, N) ==K false andBool hasModifier(ModsT, optional)
-
+  requires notBool hasKey(MS, N) andBool hasModifier(ModsT, optional)
 // Target required property missing in source is NOT OK
-rule objectAssignable(MS:Map, (N:Id |-> PropertySignatureType(_Tt:Type, ModsT:Set)) _MTail:Map)
+rule objectAssignable(MS:Map, (N:Id |-> PropertySignatureType(_:Type, ModsT:Set)) _MTail:Map)
   => false
-  requires hasKey(MS, N) ==K false andBool notBool hasModifier(ModsT, optional)
-
-// Apply object assignability
-rule isAssignable(ObjectType(MS:Map), ObjectType(MT:Map)) => objectAssignable(MS, MT)
-
-// Fallback
-rule isAssignable(_:Type, _:Type) => false [owise]
+  requires notBool hasKey(MS, N) andBool notBool hasModifier(ModsT, optional)
 
 endmodule

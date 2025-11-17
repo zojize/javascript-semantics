@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "make:types": "kompile ./typescript/ts-types.k",
-    "start:types": "krun --definition ./ts-types-kompiled ./typescript/temp.ts",
+    "start:types": "krun --definition ./ts-types-kompiled ./typescript/test",
     "start:types:checks": "krun --definition ./ts-types-kompiled ./typescript/checks.ts",
     "typecheck:ts": "tsc --noEmit --pretty false ./typescript/checks.ts"
   },

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 type A = number;
 type B = string | number;
 type P = { x: number };
